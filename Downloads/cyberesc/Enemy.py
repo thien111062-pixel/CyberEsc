@@ -11,6 +11,106 @@ GREEN = (50, 255, 50)
 WHITE = (255, 255, 255)
 ORANGE = (255, 140, 0)
 
+# --- BẢNG MÀU PIXEL ART ENEMY ---
+ENEMY_COLOR_MAP = {
+    '#': (20, 20, 30),       # Viền khung tối
+    'X': (90, 100, 120),    # Thân vỏ kim loại xám
+    'R': (255, 30, 60),      # Mắt/Laser đỏ Cyber
+    'C': (0, 220, 255),      # Đèn Neon Xanh
+    'P': (255, 0, 128),      # Đèn Neon Hồng (Boss)
+    'G': (50, 60, 75),       # Khớp nối / Bánh răng
+    'Y': (255, 200, 0),      # Đèn cảnh báo Vàng
+    'W': (240, 240, 255),    # Cánh quạt Drone
+    '.': None                # Trong suốt
+}
+
+# --- MODEL PIXEL ART ---
+PATROL_BOT_PIXELS = [
+    "....########....",
+    "...#XXXXXXXX#...",
+    "..#XXRRRRRRXX#..",
+    "..#XXRRRRRRXX#..",
+    "..#XXXXXXXXXX#..",
+    "...##########...",
+    "....#GGGGGG#....",
+    "...#XXXXXXXX#...",
+    "..#XXXXXXXXXX#..",
+    "..#XX######XX#..",
+    "..#XX#....#XX#..",
+    "..#XX#....#XX#..",
+    ".#GGGG#..#GGGG#.",
+    ".######..######."
+]
+
+FLYING_DRONE_PIXELS = [
+    "#WW..........WW#",
+    "####........####",
+    "..#G#......#G#..",
+    "..#GG######GG#..",
+    ".#XXXXXXXXXXXX#.",
+    "#XXXXXXXXXXXXXX#",
+    "#XXCCCCCCCCCCCC#",
+    "#XXCCCCCCCCCCCC#",
+    ".#XXXXXXXXXXXX#.",
+    "..############..",
+    "....#GG##GG#....",
+    "....##....##...."
+]
+
+BOSS_PHASE1_PIXELS = [
+    "........########........",
+    ".......#XXXXXXXX#.......",
+    "......#XXCCCCCCCC#......",
+    "......#XXCCCCCCCC#......",
+    ".....#XXXXXXXXXXXX#.....",
+    "....################....",
+    "...#XXXXXXXXXXXXXXXX#...",
+    "..#XXPP##########PPXX#..",
+    "..#XXPP#RRRRRRRR#PPXX#..",
+    "..#XXPP#RRRRRRRR#PPXX#..",
+    "..#XXPP##########PPXX#..",
+    "...#XXXXXXXXXXXXXXXX#...",
+    "....################....",
+    "....#GGGG######GGGG#....",
+    "...#XXXXX#....#XXXXX#...",
+    "...#XXXXX#....#XXXXX#...",
+    "..#GGGGGG#....#GGGGGG#..",
+    "..######........######.."
+]
+
+BOSS_PHASE2_PIXELS = [
+    "........########........",
+    ".......#XXXXXXXX#.......",
+    "......#XXRRRRRRXX#......",
+    "......#XXRRRRRRXX#......",
+    ".....#XXXXXXXXXXXX#.....",
+    "....################....",
+    "...#XXXXXXXXXXXXXXXX#...",
+    "..#XXRR##########RRXX#..",
+    "..#XXRR#YYYYYYYY#RRXX#..",
+    "..#XXRR#YYYYYYYY#RRXX#..",
+    "..#XXRR##########RRXX#..",
+    "...#XXXXXXXXXXXXXXXX#...",
+    "....################....",
+    "....#GGGG######GGGG#....",
+    "...#XXXXX#....#XXXXX#...",
+    "...#XXXXX#....#XXXXX#...",
+    "..#GGGGGG#....#GGGGGG#..",
+    "..######........######.."
+]
+
+def create_sprite_surface(pixel_data, scale=2, palette=ENEMY_COLOR_MAP):
+    height = len(pixel_data)
+    width = max(len(row) for row in pixel_data)
+    surface = pygame.Surface((width * scale, height * scale), pygame.SRCALPHA)
+    for y, row in enumerate(pixel_data):
+        for x, char in enumerate(row):
+            color = palette.get(char)
+            if color:
+                rect = pygame.Rect(x * scale, y * scale, scale, scale)
+                pygame.draw.rect(surface, color, rect)
+    return surface
+
 
 class EnemyBullet(pygame.sprite.Sprite):
     def __init__(self, x, y, target_x, target_y, speed=7, damage=10, angle_offset=0.0):
@@ -42,7 +142,11 @@ class EnemyBullet(pygame.sprite.Sprite):
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, map_width=2400):
         super().__init__()
-        self.rect = pygame.Rect(x, y, 30, 50)
+        self.image_right = create_sprite_surface(PATROL_BOT_PIXELS, scale=3)
+        self.image_left = pygame.transform.flip(self.image_right, True, False)
+        self.image = self.image_right
+        self.rect = self.image.get_rect(topleft=(x, y))
+
         self.max_hp = 50
         self.hp = 50
         self.damage = 10
@@ -53,6 +157,11 @@ class Enemy(pygame.sprite.Sprite):
     def update(self, *args):
         self.rect.x += self.speed * self.direction
         
+        if self.direction > 0:
+            self.image = self.image_right
+        else:
+            self.image = self.image_left
+
         # SỬA BUG: Giữ quái luôn ở trong giới hạn Map, quay đầu khi chạm viền
         if self.rect.left <= 0:
             self.rect.left = 0
@@ -63,12 +172,24 @@ class Enemy(pygame.sprite.Sprite):
         elif random.random() < 0.01:
             self.direction *= -1
 
+    def draw(self, screen, camera_x=0):
+        ren_rect = self.rect.move(-camera_x, 0)
+        screen.blit(self.image, ren_rect)
+
+        hp_ratio = max(0, self.hp / self.max_hp)
+        pygame.draw.rect(screen, RED, (ren_rect.x, ren_rect.top - 8, self.rect.width, 4))
+        pygame.draw.rect(screen, GREEN, (ren_rect.x, ren_rect.top - 8, int(self.rect.width * hp_ratio), 4))
+
 
 class FlyingEnemy(pygame.sprite.Sprite):
     """Lớp quái bay di chuyển uốn lượn trên không"""
     def __init__(self, x, y, fly_range=180, map_width=2400):
         super().__init__()
-        self.rect = pygame.Rect(x, y, 36, 30)
+        self.image_right = create_sprite_surface(FLYING_DRONE_PIXELS, scale=2.5)
+        self.image_left = pygame.transform.flip(self.image_right, True, False)
+        self.image = self.image_right
+        self.rect = self.image.get_rect(topleft=(x, y))
+
         self.max_hp = 35
         self.hp = 35
         self.damage = 12
@@ -101,6 +222,11 @@ class FlyingEnemy(pygame.sprite.Sprite):
             self.rect.right = self.map_width
             self.direction = -1
 
+        if self.direction > 0:
+            self.image = self.image_right
+        else:
+            self.image = self.image_left
+
         # 2. Tạo chuyển động nhấp nhô hình sóng sin
         self.angle += 0.08
         self.rect.y = int(self.base_y + math.sin(self.angle) * self.float_amplitude)
@@ -109,33 +235,26 @@ class FlyingEnemy(pygame.sprite.Sprite):
             self.shoot_cooldown -= 1
 
     def draw(self, screen, camera_x=0):
-        """Vẽ đồ họa quái bay Cyber dạng cánh én năng lượng"""
+        """Vẽ đồ họa quái bay Cyber Drone Pixel-Art"""
         ren_rect = self.rect.move(-camera_x, 0)
-
-        # Thân hình tam giác dốc xuống
-        points = [
-            (ren_rect.left, ren_rect.top),
-            (ren_rect.right, ren_rect.top),
-            (ren_rect.centerx, ren_rect.bottom)
-        ]
-        pygame.draw.polygon(screen, CYBER_PINK, points)
-        pygame.draw.polygon(screen, CYBER_BLUE, points, 2)
-
-        # Lõi năng lượng ở giữa
-        pygame.draw.circle(screen, CYBER_YELLOW, (ren_rect.centerx, ren_rect.top + 8), 4)
+        screen.blit(self.image, ren_rect)
 
         # Thanh máu phía trên
         hp_ratio = max(0, self.hp / self.max_hp)
-        pygame.draw.rect(screen, RED, (ren_rect.x, ren_rect.top - 8, 36, 4))
-        pygame.draw.rect(screen, GREEN, (ren_rect.x, ren_rect.top - 8, int(36 * hp_ratio), 4))
+        pygame.draw.rect(screen, RED, (ren_rect.x, ren_rect.top - 8, self.rect.width, 4))
+        pygame.draw.rect(screen, GREEN, (ren_rect.x, ren_rect.top - 8, int(self.rect.width * hp_ratio), 4))
 
 
 class Boss(pygame.sprite.Sprite):
-    def __init__(self, x, y, map_width=2400, max_hp=300):
+    def __init__(self, x, y, map_width=2400, max_hp=1500):
         super().__init__()
-        self.rect = pygame.Rect(x, y - 40, 60, 90)
+        self.img_p1 = create_sprite_surface(BOSS_PHASE1_PIXELS, scale=3.5)
+        self.img_p2 = create_sprite_surface(BOSS_PHASE2_PIXELS, scale=3.5)
+        self.image = self.img_p1
+        # CẬP NHẬT: Đặt topleft=(x, y) để Boss đứng sát đất, không bị đẩy lên cao nữa
+        self.rect = self.image.get_rect(topleft=(x, y))
         
-        # Nhận lượng máu tùy chỉnh theo từng Level
+        # Máu Phase 1 khởi điểm mặc định 1500 HP
         self.max_hp = max_hp
         self.hp = max_hp
         self.damage = 20
@@ -154,6 +273,9 @@ class Boss(pygame.sprite.Sprite):
         # --- CHUYỂN PHASE KHI HP <= 50% ---
         if self.hp <= self.max_hp * 0.5 and self.phase == 1:
             self.phase = 2
+            self.image = self.img_p2
+            self.max_hp = 3000      # Tăng Max HP Phase 2 lên 3000
+            self.hp = 3000          # Hồi đầy 3000 HP cho Phase 2
             self.speed = 3.5        # Tăng tốc độ di chuyển
             self.shoot_delay = 45   # Bắn nhanh hơn đáng kể
 
@@ -200,6 +322,10 @@ class Boss(pygame.sprite.Sprite):
 
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
+
+    def draw(self, screen, camera_x=0):
+        ren_rect = self.rect.move(-camera_x, 0)
+        screen.blit(self.image, ren_rect)
 
     def draw_health_bar(self, screen, player):
         """Thanh máu UI hiển thị Phase & Trạng thái Rage Mode"""

@@ -1,11 +1,11 @@
 {
-    "coins": 6310,
+    "coins": 830,
     "max_unlocked_level": 8,
-    "hp_lvl": 1,
-    "hp_cost": 500,
-    "dmg_lvl": 3,
-    "dmg_cost": 1944,
-    "speed_lvl": 2,
-    "speed_cost": 720,
+    "hp_lvl": 4,
+    "hp_cost": 2916,
+    "dmg_lvl": 4,
+    "dmg_cost": 3499,
+    "speed_lvl": 4,
+    "speed_cost": 2332,
     "rebirths": 0
 }
